@@ -9,25 +9,49 @@ NVME_MOUNT_PATH = "/media/nvme"
 SD_MOUNT_PATH = "/media/sd"
 BATTERY_SYSFS_PATH = "/sys/class/power_supply/BAT0/capacity"
 
+# Authorized filesystem roots — all path operations are sandboxed to these
+_VALID_ROOTS = (
+    os.path.realpath(NVME_MOUNT_PATH),
+    os.path.realpath(SD_MOUNT_PATH),
+    os.path.realpath("/tmp"),
+)
+
 # Mock Mode: when running locally without hardware mounts
 MOCK_MODE = os.environ.get("MOCK_MODE", "0") == "1"
 
 # In mock mode, we want to simulate a filesystem.
 _mock_file_system = {}
 
+
+def _resolve_and_validate(target_path: str) -> str:
+    """Resolve a path to its canonical form and validate it against allowed roots.
+    
+    Returns the resolved, validated path. Raises ValueError if the path
+    escapes the sandbox. This function intentionally has NO mock-mode bypass
+    so that static analysers (CodeQL) can verify every filesystem operation
+    receives a validated path.
+    """
+    resolved = os.path.realpath(target_path)
+    if not any(
+        resolved == root or resolved.startswith(root + os.sep)
+        for root in _VALID_ROOTS
+    ):
+        raise ValueError(f"Path outside allowed roots: {target_path}")
+    return resolved
+
+
 def is_safe_path(target_path: str) -> bool:
+    """Lightweight boolean check used by API-layer guards in main.py.
+    In mock mode, always returns True (no real filesystem to sandbox).
+    """
     if MOCK_MODE:
         return True
     try:
-        abs_path = os.path.realpath(target_path)
-        valid_roots = [
-            os.path.realpath(NVME_MOUNT_PATH),
-            os.path.realpath(SD_MOUNT_PATH),
-            os.path.realpath("/tmp")
-        ]
-        return any(abs_path.startswith(root) for root in valid_roots)
-    except Exception:
+        _resolve_and_validate(target_path)
+        return True
+    except (ValueError, Exception):
         return False
+
 
 def get_storage_stats(path: str):
     if MOCK_MODE:
@@ -70,8 +94,6 @@ def _get_file_type(ext: str) -> str:
     return "UNKNOWN"
 
 def scan_dir(path: str) -> List[Dict[str, Any]]:
-    if not is_safe_path(path):
-        raise ValueError(f"Path validation failed: {path}")
     if MOCK_MODE:
         # Mock some files if source is requested
         if path == "/media/sd":
@@ -94,8 +116,8 @@ def scan_dir(path: str) -> List[Dict[str, Any]]:
             f["type"] = _get_file_type(f["extension"])
         return _mock_file_system[path]
 
-    # Real mode — path already validated above
-    safe_path = os.path.realpath(path)
+    # Real mode — resolve and validate path (raises ValueError if unsafe)
+    safe_path = _resolve_and_validate(path)
     files = []
     if not os.path.exists(safe_path):
         return files
@@ -124,8 +146,6 @@ def scan_dir(path: str) -> List[Dict[str, Any]]:
     return files
 
 def hash_file(path: str) -> str:
-    if not is_safe_path(path):
-        raise ValueError(f"Path validation failed: {path}")
     if MOCK_MODE:
         # Simulate work
         time.sleep(0.5)
@@ -138,7 +158,8 @@ def hash_file(path: str) -> str:
                     break
         return hashlib.sha256(basis.encode()).hexdigest()
 
-    safe_path = os.path.realpath(path)
+    # Real mode — resolve and validate path (raises ValueError if unsafe)
+    safe_path = _resolve_and_validate(path)
     if not os.path.exists(safe_path):
         raise FileNotFoundError(f"File not found: {path}")
         
@@ -158,8 +179,6 @@ def check_duplicate(source: str, dest_dir: str) -> Dict[str, Any]:
     Returns a dict:
       {"is_duplicate": bool, "match_type": str|None, "existing_path": str|None}
     """
-    if not is_safe_path(source) or not is_safe_path(dest_dir):
-        raise ValueError(f"Path validation failed for duplicate check")
     if MOCK_MODE:
         # In mock mode, check the mock filesystem for size collisions
         source_obj = None
@@ -186,8 +205,9 @@ def check_duplicate(source: str, dest_dir: str) -> Dict[str, Any]:
                     return {"is_duplicate": True, "match_type": "hash", "existing_path": f["currentPath"]}
         return {"is_duplicate": False, "match_type": None, "existing_path": None}
 
-    safe_source = os.path.realpath(source)
-    safe_dest_dir = os.path.realpath(dest_dir)
+    # Real mode — resolve and validate both paths (raises ValueError if unsafe)
+    safe_source = _resolve_and_validate(source)
+    safe_dest_dir = _resolve_and_validate(dest_dir)
 
     if not os.path.exists(safe_source):
         raise FileNotFoundError(f"Source not found: {source}")
@@ -227,8 +247,6 @@ def check_duplicate(source: str, dest_dir: str) -> Dict[str, Any]:
 
 
 def copy_file(source: str, dest: str) -> bool:
-    if not is_safe_path(source) or not is_safe_path(dest):
-        raise ValueError(f"Path validation failed for copy operation")
     if MOCK_MODE:
         time.sleep(1.0)
         # Find file in mock source to move to dest
@@ -252,29 +270,26 @@ def copy_file(source: str, dest: str) -> bool:
         _mock_file_system[dest_dir].append(f_obj)
         return True
 
-    safe_source = os.path.realpath(source)
-    safe_dest = os.path.realpath(dest)
+    # Real mode — resolve and validate both paths (raises ValueError if unsafe)
+    safe_source = _resolve_and_validate(source)
+    safe_dest = _resolve_and_validate(dest)
     os.makedirs(os.path.dirname(safe_dest), exist_ok=True)
     shutil.copy2(safe_source, safe_dest)
     return True
 
 def delete_file(path: str) -> bool:
-    if not is_safe_path(path):
-        raise ValueError(f"Path validation failed: {path}")
     if MOCK_MODE:
         for k, vlist in _mock_file_system.items():
             _mock_file_system[k] = [f for f in vlist if f["currentPath"] != path]
         return True
 
-    safe_path = os.path.realpath(path)
+    # Real mode — resolve and validate path (raises ValueError if unsafe)
+    safe_path = _resolve_and_validate(path)
     if os.path.exists(safe_path):
         os.remove(safe_path)
     return True
 
 def list_dir_contents(path: str) -> List[Dict[str, Any]]:
-    # Allow /media as a virtual root for browsing
-    if path != "/media" and not is_safe_path(path):
-        raise ValueError(f"Path validation failed: {path}")
     if MOCK_MODE:
         if path == "/media":
             return [
@@ -290,7 +305,12 @@ def list_dir_contents(path: str) -> List[Dict[str, Any]]:
             return _mock_file_system["/media/sd"]
         return []
 
-    safe_path = os.path.realpath(path)
+    # Allow /media as a virtual root for browsing, validate everything else
+    if path == "/media":
+        safe_path = "/media"
+    else:
+        safe_path = _resolve_and_validate(path)
+
     files = []
     if not os.path.exists(safe_path):
         return files
@@ -316,16 +336,15 @@ def list_dir_contents(path: str) -> List[Dict[str, Any]]:
 
 async def copy_file_chunked(source: str, dest: str):
     import aiofiles
-    if not is_safe_path(source) or not is_safe_path(dest):
-        raise ValueError(f"Path validation failed for chunked copy")
     if MOCK_MODE:
         for i in range(1, 11):
             await asyncio.sleep(0.1)
             yield float(i * 10)
         return
 
-    safe_source = os.path.realpath(source)
-    safe_dest = os.path.realpath(dest)
+    # Real mode — resolve and validate both paths (raises ValueError if unsafe)
+    safe_source = _resolve_and_validate(source)
+    safe_dest = _resolve_and_validate(dest)
     os.makedirs(os.path.dirname(safe_dest), exist_ok=True)
     file_size = os.path.getsize(safe_source)
     if file_size == 0:
@@ -346,20 +365,23 @@ async def copy_file_chunked(source: str, dest: str):
 
 def create_zip_file(paths: List[str], output_path: str, max_mb: int = 4000) -> str:
     import zipfile
-    # Validate all input paths and the output path
+
+    # Validate output path
+    safe_output = _resolve_and_validate(output_path)
+
+    # Validate and resolve all input paths
+    safe_paths = []
     for p in paths:
-        if not is_safe_path(p):
-            raise ValueError(f"Path validation failed: {p}")
-    if not is_safe_path(output_path):
-        raise ValueError(f"Output path validation failed: {output_path}")
+        try:
+            safe_paths.append(_resolve_and_validate(p))
+        except ValueError:
+            continue  # Skip invalid paths silently
 
     max_bytes = max_mb * 1024 * 1024
     current_bytes = 0
-    safe_output = os.path.realpath(output_path)
     
     with zipfile.ZipFile(safe_output, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for path in paths:
-            safe_path = os.path.realpath(path)
+        for safe_path in safe_paths:
             if not os.path.exists(safe_path):
                 continue
                 
