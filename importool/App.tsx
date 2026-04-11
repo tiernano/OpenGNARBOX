@@ -751,7 +751,7 @@ export default function App() {
              
              {/* Copyright Footer */}
              <div className="mt-8 pt-8 border-t border-gray-800 text-center text-xs text-gray-600">
-               <p>&copy; {new Date().getFullYear()} OpenGNARBOX Open Source Project. All rights reserved.</p>
+               <p>&copy; {new Date().getFullYear()} OpenGNARBOX Source-Available Project. All rights reserved.</p>
                <p className="mt-1">Built with React + Vite</p>
              </div>
            </div>

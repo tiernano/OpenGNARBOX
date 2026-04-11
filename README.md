@@ -8,13 +8,13 @@ For a detailed look at implemented features vs. original hardware capabilities, 
 
 **The Open Source Firmware successor for GNARBOX 2.0 Hardware.**
 
-OpenGNARBOX is a specialized software stack designed to replace the proprietary firmware on GNARBOX 2.0 (x86_64) devices. It transforms the device into a robust, secure, and fully open-source backup and organization tool for professional photographers and videographers.
+OpenGNARBOX is a specialized software stack designed to replace the proprietary firmware on GNARBOX 2.0 (x86_64) devices. It transforms the device into a robust, secure, and fully source-available backup and organization tool for professional photographers and videographers.
 
 ## 📜 Motivation
 
 Following the **bankruptcy of MyGnar Inc.**, the original GNARBOX hardware was left without official support, potentially turning thousands of high-end field backup devices into e-waste. Furthermore, analysis of the original proprietary firmware revealed significant security gaps and architectural vulnerabilities. 
 
-OpenGNARBOX was born out of a necessity to provide a **secure, sustainable, and transparent** alternative that puts the hardware back in the hands of its owners.
+OpenGNARBOX was born out of a necessity to provide a **secure, sustainable, and transparent** alternative that puts the hardware back in the hands of its owners, released as a source-available project.
 
 ## 🌟 Key Features
 
@@ -93,6 +93,11 @@ npm run dev
 ```
 
 ---
-*OpenGNARBOX is an independent open-source project and is not affiliated with the original GNARBOX manufacturer.*
+*OpenGNARBOX is an independent source-available project and is not affiliated with the original GNARBOX manufacturer.*
 
-&copy; CyberTap IT & Security
+## 📄 License
+This project is the intellectual property of **CyberTap IT & Security / Dominik W. Feger**. Use, modification, and redistribution are restricted under a custom proprietary license. 
+
+See [LICENSE](./LICENSE) for full terms.
+
+&copy; 2026 CyberTap IT & Security / Dominik W. Feger
