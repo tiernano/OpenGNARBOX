@@ -29,7 +29,9 @@ OpenGNARBOX was born out of a necessity to provide a **secure, sustainable, and 
 OpenGNARBOX is built with a decoupled, containerized architecture:
 
 ### [OpenGNAR Core (Backend)](./backend)
-A high-performance **FastAPI (Python)** server that manages the device hardware.
+A lightweight, high-performance **FastAPI (Python)** server optimized for the device hardware.
+- **Improved Performance**: Minimal overhead allows for significantly faster file operations and indexing than the original firmware.
+- **App-Free Access**: No proprietary mobile app is required; the full experience is accessible via any modern web browser.
 - Orchestrates file operations (copy, move, delete, hash).
 - Monitors system status (battery, storage).
 - Enforces security through a sandboxed path validation engine.

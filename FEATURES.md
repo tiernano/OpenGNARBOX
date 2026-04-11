@@ -9,7 +9,8 @@ This document outlines the current capabilities of the OpenGNARBOX software stac
 | **On-Device Backups** | ✅ (Single Button) | ❌ | In Development |
 | **Built-in OLED Screen** | ✅ (Full Menu) | ❌ | Reverse Engineering |
 | **Directional Buttons** | ✅ (Navigation) | ❌ | Reverse Engineering |
-| **Web User Interface** | ⚠️ (Minimal App) | ✅ (Full Explorer) | **Improved** |
+| **User Interface** | ⚠️ (Legacy Mobile App) | ✅ (Universal Web App) | **Improved (No App Needed)** |
+| **Performance** | ⚠️ (Legacy Bloat) | ✅ (Lightweight Core) | **Improved (Faster Indexing)** |
 | **Deduplication** | ✅ | ✅ (Deep Hash) | **Improved** |
 | **Transfer Progress** | ✅ (On-Device Screen + App) | ✅ (Only Web App) | Feature Parity |
 | **Security** | ❓ (Proprietary unsecured Firmware) | ✅ (Sandboxed, Secure Coding Practices) | **Improved** |
@@ -39,7 +40,9 @@ The device logic is tied heavily to the physical buttons. Pressing the "Down" bu
 Our current implementation focuses on the **Core Engine** and a **Modern Web Interface** for professional media management.
 
 ### 🌐 Advanced Web UI (ImporTool)
-While the original device relied heavily on native mobile apps, OpenGNARBOX provides a powerful, local-only web interface accessible from any browser on the same network as the device (Phone, Tablet, or Laptop).
+While the original device relied heavily on native mobile apps that were often buggy, old and thus unsupported or OS-restricted, OpenGNARBOX provides a powerful, local-only web interface accessible from any browser on the same network as the device (Phone, Tablet, or Laptop).
+- **Universal Access**: No "dumb" proprietary app to install. Just connect to the device's WiFi and open your browser.
+- **Improved Speed**: The optimized Python core ensures that directory scanning and indexing are noticeably faster than the original firmware.
 - **Full File Browser**: Manage and download files directly from the device via a professional explorer-like interface.
 - **WebSocket Progress**: Detailed per file progress bars for file copy/move operations delivered in real-time.
 - **Smart Organization**: Automatically re-structures your media library based on metadata and camera models during ingestion.
