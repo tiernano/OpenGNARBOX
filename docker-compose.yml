@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  opengnar-core:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: opengnar-core
+    restart: unless-stopped
+    ports:
+      - "80:8000"
+    volumes:
+      # Expose host hardware/system info
+      - /sys/class/power_supply:/sys/class/power_supply:ro
+      # Expose storage devices
+      - /media/gnarbox/nvme:/media/nvme:rw
+      - /media/gnarbox/sd:/media/sd:ro
+      # Allow frontend serving directly from backend
+      - ./frontend:/app/frontend:ro
+    privileged: true
+    user: root
+    mem_limit: 1024m
+
+  opengnar-smb:
+    image: dperson/samba:latest
+    container_name: opengnar-smb
+    restart: unless-stopped
+    ports:
+      - "139:139"
+      - "445:445"
+    volumes:
+      - /media/gnarbox/nvme:/media/nvme:rw
+    command: '-s "OpenGNAR;/media/nvme;yes;no;yes;all;none" -n -p'
+    mem_limit: 512m
