@@ -22,7 +22,7 @@ import {
   DuplicateStrategy,
   FinalReport
 } from './types';
-import { fileService } from './utils/fileSystemAccess'; // Uses the Service Provider
+import { fileService } from './services/FileService';
 import { calculateDestinationPath } from './services/organizer';
 import FileSystemTree from './components/FileSystemTree';
 import TransactionMonitor from './components/TransactionMonitor';
@@ -274,7 +274,7 @@ export default function App() {
             const destHash = await fileService.hashFile(destPath);
 
             // Verify integrity
-            if (destHash === sourceHash || fileService.platform !== 'electron') {
+            if (destHash === sourceHash) {
                 if (isMoveMode) {
                     await fileService.deleteFile(fileNode.currentPath);
                     setIncomingFiles(prev => prev.filter(f => f.id !== fileNode.id));
@@ -336,7 +336,7 @@ export default function App() {
   return (
     <div className="flex h-screen bg-gray-950 text-slate-200 font-sans selection:bg-blue-500 selection:text-white">
       {/* Sidebar */}
-      <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0 drag-region">
+      <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0">
         <div className="p-6 flex items-center space-x-3 pt-10">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.5)]">
             <CubeTransparentIcon className="w-6 h-6 text-white" />
@@ -513,7 +513,7 @@ export default function App() {
         {activeTab === 'organize' && (
           <>
             {/* Header */}
-            <header className="h-16 border-b border-gray-800 bg-gray-900/50 flex items-center justify-between px-8 backdrop-blur-md sticky top-0 z-10 drag-region">
+            <header className="h-16 border-b border-gray-800 bg-gray-900/50 flex items-center justify-between px-8 backdrop-blur-md sticky top-0 z-10">
                <div className="no-drag">
                  <h1 className="text-lg font-semibold text-white flex items-center gap-2">
                    <ArrowPathIcon className="w-5 h-5 text-gray-400" />

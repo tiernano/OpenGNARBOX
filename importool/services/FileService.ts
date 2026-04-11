@@ -1,8 +1,6 @@
 import { IFileService, FileNode } from '../types';
 
 class DockerFileService implements IFileService {
-  isNative = false;
-  platform = 'web' as const;
 
   async selectDirectory(): Promise<string | null> {
     return "/media/placeholder";
