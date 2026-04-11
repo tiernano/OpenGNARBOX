@@ -1,0 +1,29 @@
+[MAIN]
+# Use multiple processes for speed
+jobs=1
+
+[MESSAGES CONTROL]
+# Disable warnings that are noise for this project:
+#   C0301: line-too-long — we use 120 char limit, handled by max-line-length
+#   R0914: too-many-locals — complex file operations need state
+#   R0911: too-many-return-statements — early returns are idiomatic
+#   R0912: too-many-branches — complex validation logic
+#   R0903: too-few-public-methods — Pydantic models are data classes
+#   C0114: missing-module-docstring — modules are self-documenting
+#   C0115: missing-class-docstring — Pydantic request models are obvious
+#   E0401: import-error — dependencies installed in Docker, not host
+#   C0415: import-outside-toplevel — lazy imports are intentional (aiofiles, zipfile)
+#   W0718: broad-exception-caught — API boundary handlers catch broadly by design
+disable=
+    R0914,
+    R0911,
+    R0912,
+    R0903,
+    C0114,
+    C0115,
+    E0401,
+    C0415,
+    W0718
+
+[FORMAT]
+max-line-length=120
