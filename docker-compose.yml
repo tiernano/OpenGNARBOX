@@ -3,7 +3,7 @@ version: '3.8'
 services:
   opengnar-core:
     build: 
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     container_name: opengnar-core
     restart: unless-stopped
@@ -15,11 +15,11 @@ services:
       # Expose storage devices
       - /media/gnarbox/nvme:/media/nvme:rw
       - /media/gnarbox/sd:/media/sd:ro
-      # Allow frontend serving directly from backend
-      - ./frontend:/app/frontend:ro
     privileged: true
     user: root
     mem_limit: 1024m
+    environment:
+      - MOCK_MODE=0
 
   opengnar-smb:
     image: dperson/samba:latest

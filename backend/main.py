@@ -1,9 +1,13 @@
-from fastapi import FastAPI, BackgroundTasks
+import os
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import os
+from pydantic import BaseModel
 
-from system_utils import get_storage_stats, get_battery_stats, NVME_MOUNT_PATH, SD_MOUNT_PATH, run_rsync_backup, backup_state
+from system_utils import (
+    get_storage_stats, get_battery_stats, NVME_MOUNT_PATH, SD_MOUNT_PATH,
+    scan_dir, hash_file, copy_file, delete_file
+)
 
 app = FastAPI(title="OpenGNAR Core API")
 
@@ -15,25 +19,53 @@ def get_status():
         "battery": get_battery_stats()
     }
 
-@app.post("/api/backup")
-def start_backup(background_tasks: BackgroundTasks):
-    if backup_state["is_running"]:
-        return {"status": "error", "message": "Backup already running"}
-    
-    background_tasks.add_task(run_rsync_backup)
-    return {"status": "started"}
+@app.get("/api/files/scan")
+def _scan_files(path: str):
+    try:
+        files = scan_dir(path)
+        return {"files": files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/backup/progress")
-def get_backup_progress():
-    return backup_state
+class PathRequest(BaseModel):
+    path: str
 
-# Mount the static files (frontend)
-frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
+@app.post("/api/files/hash")
+def _hash_file(req: PathRequest):
+    try:
+        h = hash_file(req.path)
+        return {"hash": h}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class CopyRequest(BaseModel):
+    source: str
+    target: str
+
+@app.post("/api/files/copy")
+def _copy_file(req: CopyRequest):
+    try:
+        success = copy_file(req.source, req.target)
+        return {"success": success}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/files/delete")
+def _delete_file(req: PathRequest):
+    try:
+        success = delete_file(req.path)
+        return {"success": success}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Mount the static files (frontend dist built by Vite)
+frontend_path = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
 if os.path.exists(frontend_path):
-    app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
 
-    @app.get("/")
-    def serve_frontend():
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str):
+        # Serve index.html for unknown routes to support SPA
         index_file = os.path.join(frontend_path, "index.html")
         if os.path.exists(index_file):
             return FileResponse(index_file)
@@ -41,5 +73,4 @@ if os.path.exists(frontend_path):
 else:
     @app.get("/")
     def serve_fallback():
-        return {"message": "OpenGNAR Core is running, but frontend files were not found."}
-
+        return {"message": "OpenGNAR Core is running, but frontend/dist files were not found."}

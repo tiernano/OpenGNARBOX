@@ -1,0 +1,19 @@
+{
+  "appId": "com.cybertap.importool",
+  "appName": "ImporTool",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "FileSystem": {
+      "androidScheme": "content"
+    }
+  },
+  "android": {
+    "path": "android"
+  }
+}

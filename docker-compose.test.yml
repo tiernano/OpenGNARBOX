@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  opengnar-core:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: opengnar-core-test
+    ports:
+      - "8081:8000"
+    environment:
+      - MOCK_MODE=1
