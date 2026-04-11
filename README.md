@@ -6,7 +6,7 @@
 
 For a detailed look at implemented features vs. original hardware capabilities, see [FEATURES.md](./FEATURES.md).
 
-**The Open Source Firmware successor for GNARBOX 2.0 Hardware.**
+**The Open Firmware successor for GNARBOX 2.0 Hardware.**
 
 OpenGNARBOX is a specialized software stack designed to replace the proprietary firmware on GNARBOX 2.0 (x86_64) devices. It transforms the device into a robust, secure, and fully source-available backup and organization tool for professional photographers and videographers.
 
