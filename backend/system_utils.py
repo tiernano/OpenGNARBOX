@@ -159,3 +159,99 @@ def delete_file(path: str) -> bool:
     if os.path.exists(path):
         os.remove(path)
     return True
+
+def list_dir_contents(path: str) -> List[Dict[str, Any]]:
+    if MOCK_MODE:
+        if path == "/media":
+            return [
+                {"name": "nvme", "isDirectory": True, "path": "/media/nvme", "size": 0},
+                {"name": "sd", "isDirectory": True, "path": "/media/sd", "size": 0}
+            ]
+        elif path == "/media/sd":
+            if "/media/sd" not in _mock_file_system:
+                _mock_file_system["/media/sd"] = [
+                    {"name": "2024-05-10_SONY_DSC001.ARW", "isDirectory": False, "path": "/media/sd/2024-05-10_SONY_DSC001.ARW", "size": 25000000},
+                    {"name": "DCIM", "isDirectory": True, "path": "/media/sd/DCIM", "size": 0}
+                ]
+            return _mock_file_system["/media/sd"]
+        return []
+    
+    files = []
+    if not os.path.exists(path):
+        return files
+    
+    try:
+        entries = os.listdir(path)
+        for name in entries:
+            full_path = os.path.join(path, name)
+            try:
+                stat = os.stat(full_path)
+                files.append({
+                    "name": name,
+                    "isDirectory": os.path.isdir(full_path),
+                    "path": full_path,
+                    "size": stat.st_size,
+                    "createdDate": int(stat.st_mtime * 1000)
+                })
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return sorted(files, key=lambda x: (not x["isDirectory"], x["name"].lower()))
+
+async def copy_file_chunked(source: str, dest: str):
+    import aiofiles
+    if MOCK_MODE:
+        for i in range(1, 11):
+            await asyncio.sleep(0.1)
+            yield float(i * 10)
+        return
+
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    file_size = os.path.getsize(source)
+    if file_size == 0:
+        yield 100.0
+        return
+
+    chunk_size = 1024 * 1024 * 10 # 10MB chunks
+    copied = 0
+
+    async with aiofiles.open(source, 'rb') as src, aiofiles.open(dest, 'wb') as dst:
+        while True:
+            chunk = await src.read(chunk_size)
+            if not chunk:
+                break
+            await dst.write(chunk)
+            copied += len(chunk)
+            yield min(100.0, (copied / file_size) * 100)
+
+def create_zip_file(paths: List[str], output_path: str, max_mb: int = 4000) -> str:
+    import zipfile
+    max_bytes = max_mb * 1024 * 1024
+    current_bytes = 0
+    
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for path in paths:
+            if not os.path.exists(path):
+                continue
+                
+            if os.path.isfile(path):
+                size = os.path.getsize(path)
+                if current_bytes + size > max_bytes:
+                    break
+                zipf.write(path, arcname=os.path.basename(path))
+                current_bytes += size
+                
+            elif os.path.isdir(path):
+                for root, _, files in os.walk(path):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        size = os.path.getsize(file_path)
+                        if current_bytes + size > max_bytes:
+                            break
+                        arcname = os.path.relpath(file_path, os.path.dirname(path))
+                        zipf.write(file_path, arcname=arcname)
+                        current_bytes += size
+                    if current_bytes > max_bytes:
+                        break
+    return output_path

@@ -26,6 +26,7 @@ import { fileService } from './utils/fileSystemAccess'; // Uses the Service Prov
 import { calculateDestinationPath } from './services/organizer';
 import FileSystemTree from './components/FileSystemTree';
 import TransactionMonitor from './components/TransactionMonitor';
+import FileBrowser from './components/FileBrowser';
 
 const DEFAULT_CONFIG: AppConfig = {
   backupRetentionDays: 7,
@@ -36,7 +37,7 @@ const DEFAULT_CONFIG: AppConfig = {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'organize' | 'settings'>('organize');
+  const [activeTab, setActiveTab] = useState<'organize' | 'settings' | 'browse'>('organize');
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
   const folders = {
     source: '/media/sd',
@@ -257,12 +258,16 @@ export default function App() {
                 updateJobStatus(job.id, TransactionStatus.BACKING_UP);
                 const backupFolder = `${folders.backup}/backup_${new Date().toISOString().split('T')[0]}`;
                 const backupPath = `${backupFolder}/${fileNode.name}`;
-                await fileService.copyFile(fileNode.currentPath, backupPath);
+                await fileService.copyFile(fileNode.currentPath, backupPath, (p) => {
+                   setJobs(prev => prev.map(j => j.id === job.id ? { ...j, progress: p } : j));
+                });
             }
 
             // --- Step 4: Write to Library ---
             updateJobStatus(job.id, TransactionStatus.MOVING);
-            await fileService.copyFile(fileNode.currentPath, destPath);
+            await fileService.copyFile(fileNode.currentPath, destPath, (p) => {
+                setJobs(prev => prev.map(j => j.id === job.id ? { ...j, progress: p } : j));
+            });
 
             // --- Step 5: Verify ---
             updateJobStatus(job.id, TransactionStatus.VERIFYING);
@@ -350,6 +355,12 @@ export default function App() {
             label="Organizer" 
             active={activeTab === 'organize'}
             onClick={() => setActiveTab('organize')}
+          />
+          <SidebarItem 
+            icon={<FolderOpenIcon className="w-5 h-5" />} 
+            label="File Browser" 
+            active={activeTab === 'browse'}
+            onClick={() => setActiveTab('browse')}
           />
           <SidebarItem 
             icon={<CogIcon className="w-5 h-5" />} 
@@ -745,6 +756,8 @@ export default function App() {
              </div>
            </div>
         )}
+
+        {activeTab === 'browse' && <FileBrowser />}
       </div>
     </div>
   );

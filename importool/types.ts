@@ -57,6 +57,7 @@ export interface Job {
   backupPath?: string;
   error?: string;
   timestamp: number;
+  progress?: number;
 }
 
 export interface AppConfig {
@@ -93,8 +94,9 @@ export interface IFileService {
   platform: 'electron' | 'android' | 'ios' | 'web';
   selectDirectory: () => Promise<string | null>;
   scanDirectory: (path: string) => Promise<FileNode[]>;
+  listDirectory: (path: string) => Promise<{name: string, isDirectory: boolean, path: string, size: number, createdDate: number}[]>;
   hashFile: (path: string) => Promise<string>;
-  copyFile: (source: string, dest: string) => Promise<boolean>;
+  copyFile: (source: string, dest: string, onProgress?: (progress: number) => void) => Promise<boolean>;
   deleteFile: (path: string) => Promise<boolean>;
 }
 
@@ -104,8 +106,9 @@ declare global {
     electronAPI?: {
       selectDirectory: () => Promise<string | null>;
       scanDirectory: (path: string) => Promise<any[]>;
+      listDirectory: (path: string) => Promise<any[]>;
       hashFile: (path: string) => Promise<string>;
-      copyFile: (source: string, dest: string) => Promise<boolean>;
+      copyFile: (source: string, dest: string, onProgress?: (progress: number) => void) => Promise<boolean>;
       deleteFile: (path: string) => Promise<boolean>;
     };
   }

@@ -56,36 +56,44 @@ const TransactionMonitor: React.FC<TransactionMonitorProps> = ({ jobs }) => {
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-2 relative">
         {jobs.map(job => (
-          <div 
-            key={job.id} 
-            ref={job.id === activeJobId ? activeRef : null}
-            className={`grid grid-cols-12 gap-2 items-center p-1 rounded transition-colors ${
-                job.id === activeJobId ? 'bg-gray-800 border border-gray-700 shadow-sm' : 'hover:bg-gray-900 border border-transparent'
-            }`}
-          >
-             <div className="col-span-1 text-center font-bold">
-               <StatusIcon status={job.status} />
-             </div>
-             <div className="col-span-2 text-gray-500">
-               {new Date(job.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}
-             </div>
-             <div className="col-span-3 text-gray-300 truncate" title={job.sourcePath.split('/').pop()}>
-                {job.sourcePath.split('/').pop()}
-             </div>
-             <div className="col-span-1 text-center text-gray-600">→</div>
-             <div className="col-span-3 text-gray-300 truncate" title={job.proposedPath}>
-                ...{job.proposedPath.slice(-25)}
-             </div>
-             <div className="col-span-2 text-right">
-               <span className={`px-1.5 py-0.5 rounded text-[10px] ${
-                 job.status === TransactionStatus.COMPLETED ? 'bg-green-900 text-green-300' :
-                 job.status === TransactionStatus.FAILED ? 'bg-red-900 text-red-300' :
-                 job.status === TransactionStatus.WAITING_FOR_USER ? 'bg-orange-900 text-orange-200' :
-                 'bg-gray-800 text-gray-400'
-               }`}>
-                 {job.status.replace(/_/g, ' ')}
-               </span>
-             </div>
+          <div key={job.id} ref={job.id === activeJobId ? activeRef : null}>
+            <div 
+              className={`grid grid-cols-12 gap-2 items-center p-1 rounded-t transition-colors ${
+                  job.id === activeJobId ? 'bg-gray-800 border-x border-t border-gray-700 shadow-sm' : 'hover:bg-gray-900 border border-transparent'
+              }`}
+            >
+               <div className="col-span-1 text-center font-bold">
+                 <StatusIcon status={job.status} />
+               </div>
+               <div className="col-span-2 text-gray-500">
+                 {new Date(job.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}
+               </div>
+               <div className="col-span-3 text-gray-300 truncate" title={job.sourcePath.split('/').pop()}>
+                  {job.sourcePath.split('/').pop()}
+               </div>
+               <div className="col-span-1 text-center text-gray-600">→</div>
+               <div className="col-span-3 text-gray-300 truncate" title={job.proposedPath}>
+                  ...{job.proposedPath.slice(-25)}
+               </div>
+               <div className="col-span-2 text-right">
+                 <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                   job.status === TransactionStatus.COMPLETED ? 'bg-green-900 text-green-300' :
+                   job.status === TransactionStatus.FAILED ? 'bg-red-900 text-red-300' :
+                   job.status === TransactionStatus.WAITING_FOR_USER ? 'bg-orange-900 text-orange-200' :
+                   'bg-gray-800 text-gray-400'
+                 }`}>
+                   {job.status.replace(/_/g, ' ')}
+                 </span>
+               </div>
+            </div>
+            {job.status === TransactionStatus.MOVING && job.progress !== undefined && (
+              <div className="w-full bg-gray-900 h-1 mb-1 rounded-b">
+                <div 
+                  className="bg-blue-500 h-1 rounded-b transition-all duration-300"
+                  style={{ width: `${job.progress}%` }}
+                ></div>
+              </div>
+            )}
           </div>
         ))}
       </div>
