@@ -1,8 +1,20 @@
 # OpenGNARBOX
 
+> [!CAUTION]
+> **EARLY DEVELOPMENT PHASE**
+> This project is currently in the **early stages of active development** and is primarily in a **testing and reverse engineering phase**. The complete OpenGNARBOX software stack is **not yet fully functional**. The custom firmware images will be released at a later date. Use with extreme caution.
+
+For a detailed look at implemented features vs. original hardware capabilities, see [FEATURES.md](./FEATURES.md).
+
 **The Open Source Firmware successor for GNARBOX 2.0 Hardware.**
 
 OpenGNARBOX is a specialized software stack designed to replace the proprietary firmware on GNARBOX 2.0 (x86_64) devices. It transforms the device into a robust, secure, and fully open-source backup and organization tool for professional photographers and videographers.
+
+## 📜 Motivation
+
+Following the **bankruptcy of MyGnar Inc.**, the original GNARBOX hardware was left without official support, potentially turning thousands of high-end field backup devices into e-waste. Furthermore, analysis of the original proprietary firmware revealed significant security gaps and architectural vulnerabilities. 
+
+OpenGNARBOX was born out of a necessity to provide a **secure, sustainable, and transparent** alternative that puts the hardware back in the hands of its owners.
 
 ## 🌟 Key Features
 
