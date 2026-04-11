@@ -70,6 +70,8 @@ def _get_file_type(ext: str) -> str:
     return "UNKNOWN"
 
 def scan_dir(path: str) -> List[Dict[str, Any]]:
+    if not is_safe_path(path):
+        raise ValueError(f"Path validation failed: {path}")
     if MOCK_MODE:
         # Mock some files if source is requested
         if path == "/media/sd":
@@ -92,12 +94,13 @@ def scan_dir(path: str) -> List[Dict[str, Any]]:
             f["type"] = _get_file_type(f["extension"])
         return _mock_file_system[path]
 
-    # Real mode
+    # Real mode — path already validated above
+    safe_path = os.path.realpath(path)
     files = []
-    if not os.path.exists(path):
+    if not os.path.exists(safe_path):
         return files
         
-    for root, _, filenames in os.walk(path):
+    for root, _, filenames in os.walk(safe_path):
         for name in filenames:
             file_path = os.path.join(root, name)
             try:
@@ -121,6 +124,8 @@ def scan_dir(path: str) -> List[Dict[str, Any]]:
     return files
 
 def hash_file(path: str) -> str:
+    if not is_safe_path(path):
+        raise ValueError(f"Path validation failed: {path}")
     if MOCK_MODE:
         # Simulate work
         time.sleep(0.5)
@@ -132,12 +137,13 @@ def hash_file(path: str) -> str:
                     basis += f"_{f['size']}"
                     break
         return hashlib.sha256(basis.encode()).hexdigest()
-        
-    if not os.path.exists(path):
+
+    safe_path = os.path.realpath(path)
+    if not os.path.exists(safe_path):
         raise FileNotFoundError(f"File not found: {path}")
         
     sha256 = hashlib.sha256()
-    with open(path, "rb") as f:
+    with open(safe_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096 * 1024), b""):
             sha256.update(chunk)
     return sha256.hexdigest()
@@ -152,6 +158,8 @@ def check_duplicate(source: str, dest_dir: str) -> Dict[str, Any]:
     Returns a dict:
       {"is_duplicate": bool, "match_type": str|None, "existing_path": str|None}
     """
+    if not is_safe_path(source) or not is_safe_path(dest_dir):
+        raise ValueError(f"Path validation failed for duplicate check")
     if MOCK_MODE:
         # In mock mode, check the mock filesystem for size collisions
         source_obj = None
@@ -178,17 +186,20 @@ def check_duplicate(source: str, dest_dir: str) -> Dict[str, Any]:
                     return {"is_duplicate": True, "match_type": "hash", "existing_path": f["currentPath"]}
         return {"is_duplicate": False, "match_type": None, "existing_path": None}
 
-    if not os.path.exists(source):
+    safe_source = os.path.realpath(source)
+    safe_dest_dir = os.path.realpath(dest_dir)
+
+    if not os.path.exists(safe_source):
         raise FileNotFoundError(f"Source not found: {source}")
-    if not os.path.exists(dest_dir):
+    if not os.path.exists(safe_dest_dir):
         return {"is_duplicate": False, "match_type": None, "existing_path": None}
 
-    source_stat = os.stat(source)
+    source_stat = os.stat(safe_source)
     source_size = source_stat.st_size
     source_mtime_ms = int(source_stat.st_mtime * 1000)
     source_hash = None  # Lazy — only compute if we find a size match
 
-    for root, _, filenames in os.walk(dest_dir):
+    for root, _, filenames in os.walk(safe_dest_dir):
         for name in filenames:
             candidate_path = os.path.join(root, name)
             try:
@@ -202,7 +213,7 @@ def check_duplicate(source: str, dest_dir: str) -> Dict[str, Any]:
 
             # Tier 1: Content hash comparison (compute source hash once)
             if source_hash is None:
-                source_hash = hash_file(source)
+                source_hash = hash_file(safe_source)
             candidate_hash = hash_file(candidate_path)
             if candidate_hash == source_hash:
                 return {"is_duplicate": True, "match_type": "hash", "existing_path": candidate_path}
@@ -216,6 +227,8 @@ def check_duplicate(source: str, dest_dir: str) -> Dict[str, Any]:
 
 
 def copy_file(source: str, dest: str) -> bool:
+    if not is_safe_path(source) or not is_safe_path(dest):
+        raise ValueError(f"Path validation failed for copy operation")
     if MOCK_MODE:
         time.sleep(1.0)
         # Find file in mock source to move to dest
@@ -238,22 +251,30 @@ def copy_file(source: str, dest: str) -> bool:
         f_obj["name"] = os.path.basename(dest)
         _mock_file_system[dest_dir].append(f_obj)
         return True
-        
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    shutil.copy2(source, dest)
+
+    safe_source = os.path.realpath(source)
+    safe_dest = os.path.realpath(dest)
+    os.makedirs(os.path.dirname(safe_dest), exist_ok=True)
+    shutil.copy2(safe_source, safe_dest)
     return True
 
 def delete_file(path: str) -> bool:
+    if not is_safe_path(path):
+        raise ValueError(f"Path validation failed: {path}")
     if MOCK_MODE:
         for k, vlist in _mock_file_system.items():
             _mock_file_system[k] = [f for f in vlist if f["currentPath"] != path]
         return True
-        
-    if os.path.exists(path):
-        os.remove(path)
+
+    safe_path = os.path.realpath(path)
+    if os.path.exists(safe_path):
+        os.remove(safe_path)
     return True
 
 def list_dir_contents(path: str) -> List[Dict[str, Any]]:
+    # Allow /media as a virtual root for browsing
+    if path != "/media" and not is_safe_path(path):
+        raise ValueError(f"Path validation failed: {path}")
     if MOCK_MODE:
         if path == "/media":
             return [
@@ -268,15 +289,16 @@ def list_dir_contents(path: str) -> List[Dict[str, Any]]:
                 ]
             return _mock_file_system["/media/sd"]
         return []
-    
+
+    safe_path = os.path.realpath(path)
     files = []
-    if not os.path.exists(path):
+    if not os.path.exists(safe_path):
         return files
     
     try:
-        entries = os.listdir(path)
+        entries = os.listdir(safe_path)
         for name in entries:
-            full_path = os.path.join(path, name)
+            full_path = os.path.join(safe_path, name)
             try:
                 stat = os.stat(full_path)
                 files.append({
@@ -294,14 +316,18 @@ def list_dir_contents(path: str) -> List[Dict[str, Any]]:
 
 async def copy_file_chunked(source: str, dest: str):
     import aiofiles
+    if not is_safe_path(source) or not is_safe_path(dest):
+        raise ValueError(f"Path validation failed for chunked copy")
     if MOCK_MODE:
         for i in range(1, 11):
             await asyncio.sleep(0.1)
             yield float(i * 10)
         return
 
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    file_size = os.path.getsize(source)
+    safe_source = os.path.realpath(source)
+    safe_dest = os.path.realpath(dest)
+    os.makedirs(os.path.dirname(safe_dest), exist_ok=True)
+    file_size = os.path.getsize(safe_source)
     if file_size == 0:
         yield 100.0
         return
@@ -309,7 +335,7 @@ async def copy_file_chunked(source: str, dest: str):
     chunk_size = 1024 * 1024 * 10 # 10MB chunks
     copied = 0
 
-    async with aiofiles.open(source, 'rb') as src, aiofiles.open(dest, 'wb') as dst:
+    async with aiofiles.open(safe_source, 'rb') as src, aiofiles.open(safe_dest, 'wb') as dst:
         while True:
             chunk = await src.read(chunk_size)
             if not chunk:
@@ -320,31 +346,40 @@ async def copy_file_chunked(source: str, dest: str):
 
 def create_zip_file(paths: List[str], output_path: str, max_mb: int = 4000) -> str:
     import zipfile
+    # Validate all input paths and the output path
+    for p in paths:
+        if not is_safe_path(p):
+            raise ValueError(f"Path validation failed: {p}")
+    if not is_safe_path(output_path):
+        raise ValueError(f"Output path validation failed: {output_path}")
+
     max_bytes = max_mb * 1024 * 1024
     current_bytes = 0
+    safe_output = os.path.realpath(output_path)
     
-    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(safe_output, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for path in paths:
-            if not os.path.exists(path):
+            safe_path = os.path.realpath(path)
+            if not os.path.exists(safe_path):
                 continue
                 
-            if os.path.isfile(path):
-                size = os.path.getsize(path)
+            if os.path.isfile(safe_path):
+                size = os.path.getsize(safe_path)
                 if current_bytes + size > max_bytes:
                     break
-                zipf.write(path, arcname=os.path.basename(path))
+                zipf.write(safe_path, arcname=os.path.basename(safe_path))
                 current_bytes += size
                 
-            elif os.path.isdir(path):
-                for root, _, files in os.walk(path):
+            elif os.path.isdir(safe_path):
+                for root, _, files in os.walk(safe_path):
                     for file in files:
                         file_path = os.path.join(root, file)
                         size = os.path.getsize(file_path)
                         if current_bytes + size > max_bytes:
                             break
-                        arcname = os.path.relpath(file_path, os.path.dirname(path))
+                        arcname = os.path.relpath(file_path, os.path.dirname(safe_path))
                         zipf.write(file_path, arcname=arcname)
                         current_bytes += size
                     if current_bytes > max_bytes:
                         break
-    return output_path
+    return safe_output
