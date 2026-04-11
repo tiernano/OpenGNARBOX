@@ -70,6 +70,10 @@ class DockerFileService implements IFileService {
           } else if (data.status === 'completed') {
             ws.close();
             resolve(true);
+          } else if (data.status === 'skipped') {
+            ws.close();
+            console.warn(`Skipped: ${data.reason} (existing: ${data.existing_path})`);
+            resolve(false);
           } else if (data.error) {
              ws.close();
              reject(new Error(data.error));

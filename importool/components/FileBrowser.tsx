@@ -65,11 +65,27 @@ export default function FileBrowser() {
     setSelectedPaths(newSelected);
   };
 
-  const downloadSelected = () => {
+  const downloadSelected = async () => {
     if (selectedPaths.size === 0) return;
-    const pathsQuery = Array.from(selectedPaths).join(',');
-    window.location.href = '/api/files/download?paths=' + encodeURIComponent(pathsQuery);
-    setSelectedPaths(new Set());
+    
+    try {
+      const res = await fetch('/api/files/download/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: Array.from(selectedPaths) })
+      });
+      
+      if (!res.ok) throw new Error("Failed to create download session");
+      
+      const data = await res.json();
+      if (data.downloadId) {
+        window.location.href = `/api/files/download/${data.downloadId}`;
+        setSelectedPaths(new Set());
+      }
+    } catch (e) {
+      console.error("Download error", e);
+      alert("Failed to initiate download.");
+    }
   };
 
   const formatSize = (bytes: number) => {

@@ -63,38 +63,3 @@ export const calculateDestinationPath = (file: FileNode, config: AppConfig): str
   
   return `${config.libraryRoot}/${folderName}/${month}/${ext}/${finalFileName}`;
 };
-
-/**
- * Checks if a file exists in the library using robust comparison.
- * 1. Hashes (Strict Content Match)
- * 2. Metadata Fingerprint (Size + Time) - Substitute for mobile/performance
- */
-export const isDuplicate = (incoming: FileNode, existingLibrary: FileNode[]): boolean => {
-  return existingLibrary.some(existing => {
-      // 1. Content Hash Check (Strongest)
-      // If both files have hashes (SHA256 or Mobile META-HASH), compare them directly.
-      if (incoming.hash && existing.hash) {
-          return incoming.hash === existing.hash && incoming.size === existing.size;
-      }
-
-      // 2. Metadata Fingerprint (Substitute Comparison)
-      // Used when hashes are not yet calculated to provide a fail-safe check.
-      
-      // Size Check: Must be exact byte match.
-      if (incoming.size !== existing.size) return false;
-
-      // Time Check: Creation/Modification time must be within 2 seconds.
-      // (Accounts for minor filesystem differences between FAT32/ExFAT/APFS)
-      const timeDiff = Math.abs(incoming.createdDate.getTime() - existing.createdDate.getTime());
-      if (timeDiff > 2000) return false;
-
-      // Camera Model Check: Reduce false positives if two different cameras 
-      // took a photo at the same second with same size (unlikely but possible).
-      if (incoming.cameraModel !== 'Unknown' && existing.cameraModel !== 'Unknown') {
-         if (incoming.cameraModel !== existing.cameraModel) return false;
-      }
-
-      // If Size, Time, and Camera match, it is effectively the same capture.
-      return true;
-  });
-};

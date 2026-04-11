@@ -15,6 +15,20 @@ MOCK_MODE = os.environ.get("MOCK_MODE", "0") == "1"
 # In mock mode, we want to simulate a filesystem.
 _mock_file_system = {}
 
+def is_safe_path(target_path: str) -> bool:
+    if MOCK_MODE:
+        return True
+    try:
+        abs_path = os.path.realpath(target_path)
+        valid_roots = [
+            os.path.realpath(NVME_MOUNT_PATH),
+            os.path.realpath(SD_MOUNT_PATH),
+            os.path.realpath("/tmp")
+        ]
+        return any(abs_path.startswith(root) for root in valid_roots)
+    except Exception:
+        return False
+
 def get_storage_stats(path: str):
     if MOCK_MODE:
         return {"presence": True, "total_gb": 1000, "used_gb": 250, "free_gb": 750}
@@ -110,8 +124,14 @@ def hash_file(path: str) -> str:
     if MOCK_MODE:
         # Simulate work
         time.sleep(0.5)
-        # return a stable hash based on path name
-        return hashlib.sha256(path.split('/')[-1].encode()).hexdigest()
+        # return a stable hash based on path name and mock size
+        basis = path.split('/')[-1]
+        for vlist in _mock_file_system.values():
+            for f in vlist:
+                if f["currentPath"] == path:
+                    basis += f"_{f['size']}"
+                    break
+        return hashlib.sha256(basis.encode()).hexdigest()
         
     if not os.path.exists(path):
         raise FileNotFoundError(f"File not found: {path}")
@@ -121,6 +141,79 @@ def hash_file(path: str) -> str:
         for chunk in iter(lambda: f.read(4096 * 1024), b""):
             sha256.update(chunk)
     return sha256.hexdigest()
+
+def check_duplicate(source: str, dest_dir: str) -> Dict[str, Any]:
+    """Check if the source file already exists in the destination directory tree.
+    
+    Uses a two-tier strategy:
+      1. Content hash (SHA-256) — strongest, byte-exact match
+      2. Metadata fingerprint (size + mtime within 2s) — fast fallback
+    
+    Returns a dict:
+      {"is_duplicate": bool, "match_type": str|None, "existing_path": str|None}
+    """
+    if MOCK_MODE:
+        # In mock mode, check the mock filesystem for size collisions
+        source_obj = None
+        for vlist in _mock_file_system.values():
+            for f in vlist:
+                if f["currentPath"] == source:
+                    source_obj = f
+                    break
+            if source_obj:
+                break
+        if not source_obj:
+            return {"is_duplicate": False, "match_type": None, "existing_path": None}
+        
+        source_hash = hash_file(source)
+        for vlist in _mock_file_system.values():
+            for f in vlist:
+                if f["currentPath"] == source:
+                    continue
+                # Check if the existing file lives under the dest_dir
+                if not f["currentPath"].startswith(dest_dir):
+                    continue
+                candidate_hash = hash_file(f["currentPath"])
+                if candidate_hash == source_hash:
+                    return {"is_duplicate": True, "match_type": "hash", "existing_path": f["currentPath"]}
+        return {"is_duplicate": False, "match_type": None, "existing_path": None}
+
+    if not os.path.exists(source):
+        raise FileNotFoundError(f"Source not found: {source}")
+    if not os.path.exists(dest_dir):
+        return {"is_duplicate": False, "match_type": None, "existing_path": None}
+
+    source_stat = os.stat(source)
+    source_size = source_stat.st_size
+    source_mtime_ms = int(source_stat.st_mtime * 1000)
+    source_hash = None  # Lazy — only compute if we find a size match
+
+    for root, _, filenames in os.walk(dest_dir):
+        for name in filenames:
+            candidate_path = os.path.join(root, name)
+            try:
+                cand_stat = os.stat(candidate_path)
+            except OSError:
+                continue
+
+            # Fast reject: sizes must match exactly
+            if cand_stat.st_size != source_size:
+                continue
+
+            # Tier 1: Content hash comparison (compute source hash once)
+            if source_hash is None:
+                source_hash = hash_file(source)
+            candidate_hash = hash_file(candidate_path)
+            if candidate_hash == source_hash:
+                return {"is_duplicate": True, "match_type": "hash", "existing_path": candidate_path}
+
+            # Tier 2: Metadata fingerprint — same size and mtime within 2 seconds
+            cand_mtime_ms = int(cand_stat.st_mtime * 1000)
+            if abs(source_mtime_ms - cand_mtime_ms) <= 2000:
+                return {"is_duplicate": True, "match_type": "fingerprint", "existing_path": candidate_path}
+
+    return {"is_duplicate": False, "match_type": None, "existing_path": None}
+
 
 def copy_file(source: str, dest: str) -> bool:
     if MOCK_MODE:
