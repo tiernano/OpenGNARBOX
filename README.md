@@ -100,4 +100,7 @@ This project is the intellectual property of **CyberTap IT & Security / Dominik 
 
 See [LICENSE](./LICENSE) for full terms.
 
+### 🤖 AI Assistance Disclosure
+Parts of this project have been developed using AI-assisted coding tools. However, every line of code has been manually reviewed and verified by a human developer to ensure it adheres to best practices, security standards, and system integrity. This is not an AI slop project.
+
 &copy; 2026 CyberTap IT & Security / Dominik W. Feger
