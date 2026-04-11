@@ -9,13 +9,6 @@ NVME_MOUNT_PATH = "/media/nvme"
 SD_MOUNT_PATH = "/media/sd"
 BATTERY_SYSFS_PATH = "/sys/class/power_supply/BAT0/capacity"
 
-# Authorized filesystem roots — all path operations are sandboxed to these
-_VALID_ROOTS = (
-    os.path.realpath(NVME_MOUNT_PATH),
-    os.path.realpath(SD_MOUNT_PATH),
-    os.path.realpath("/tmp"),
-)
-
 # Mock Mode: when running locally without hardware mounts
 MOCK_MODE = os.environ.get("MOCK_MODE", "0") == "1"
 
@@ -23,33 +16,25 @@ MOCK_MODE = os.environ.get("MOCK_MODE", "0") == "1"
 _mock_file_system = {}
 
 
-def _resolve_and_validate(target_path: str) -> str:
-    """Resolve a path to its canonical form and validate it against allowed roots.
-    
-    Returns the resolved, validated path. Raises ValueError if the path
-    escapes the sandbox. This function intentionally has NO mock-mode bypass
-    so that static analysers (CodeQL) can verify every filesystem operation
-    receives a validated path.
+def _is_within_sandbox(resolved_path: str) -> bool:
+    """Check if a resolved (realpath) path is within allowed roots.
+    Uses explicit startswith checks so static analysers can verify the guard.
     """
-    resolved = os.path.realpath(target_path)
-    if not any(
-        resolved == root or resolved.startswith(root + os.sep)
-        for root in _VALID_ROOTS
-    ):
-        raise ValueError(f"Path outside allowed roots: {target_path}")
-    return resolved
+    return (
+        resolved_path.startswith("/media/nvme/") or resolved_path == "/media/nvme" or
+        resolved_path.startswith("/media/sd/") or resolved_path == "/media/sd" or
+        resolved_path.startswith("/tmp/") or resolved_path == "/tmp"
+    )
 
 
 def is_safe_path(target_path: str) -> bool:
-    """Lightweight boolean check used by API-layer guards in main.py.
-    In mock mode, always returns True (no real filesystem to sandbox).
-    """
+    """Lightweight boolean check used by API-layer guards in main.py."""
     if MOCK_MODE:
         return True
     try:
-        _resolve_and_validate(target_path)
-        return True
-    except (ValueError, Exception):
+        resolved = os.path.realpath(target_path)
+        return _is_within_sandbox(resolved)
+    except Exception:
         return False
 
 
@@ -116,8 +101,13 @@ def scan_dir(path: str) -> List[Dict[str, Any]]:
             f["type"] = _get_file_type(f["extension"])
         return _mock_file_system[path]
 
-    # Real mode — resolve and validate path (raises ValueError if unsafe)
-    safe_path = _resolve_and_validate(path)
+    # Real mode — resolve, validate inline, then use
+    safe_path = os.path.realpath(path)
+    if not (safe_path.startswith("/media/nvme/") or safe_path == "/media/nvme" or
+            safe_path.startswith("/media/sd/") or safe_path == "/media/sd" or
+            safe_path.startswith("/tmp/") or safe_path == "/tmp"):
+        raise ValueError(f"Path outside allowed roots: {path}")
+
     files = []
     if not os.path.exists(safe_path):
         return files
@@ -158,8 +148,13 @@ def hash_file(path: str) -> str:
                     break
         return hashlib.sha256(basis.encode()).hexdigest()
 
-    # Real mode — resolve and validate path (raises ValueError if unsafe)
-    safe_path = _resolve_and_validate(path)
+    # Real mode — resolve, validate inline, then use
+    safe_path = os.path.realpath(path)
+    if not (safe_path.startswith("/media/nvme/") or safe_path == "/media/nvme" or
+            safe_path.startswith("/media/sd/") or safe_path == "/media/sd" or
+            safe_path.startswith("/tmp/") or safe_path == "/tmp"):
+        raise ValueError(f"Path outside allowed roots: {path}")
+
     if not os.path.exists(safe_path):
         raise FileNotFoundError(f"File not found: {path}")
         
@@ -205,9 +200,18 @@ def check_duplicate(source: str, dest_dir: str) -> Dict[str, Any]:
                     return {"is_duplicate": True, "match_type": "hash", "existing_path": f["currentPath"]}
         return {"is_duplicate": False, "match_type": None, "existing_path": None}
 
-    # Real mode — resolve and validate both paths (raises ValueError if unsafe)
-    safe_source = _resolve_and_validate(source)
-    safe_dest_dir = _resolve_and_validate(dest_dir)
+    # Real mode — resolve and validate both paths inline
+    safe_source = os.path.realpath(source)
+    if not (safe_source.startswith("/media/nvme/") or safe_source == "/media/nvme" or
+            safe_source.startswith("/media/sd/") or safe_source == "/media/sd" or
+            safe_source.startswith("/tmp/") or safe_source == "/tmp"):
+        raise ValueError(f"Source path outside allowed roots: {source}")
+
+    safe_dest_dir = os.path.realpath(dest_dir)
+    if not (safe_dest_dir.startswith("/media/nvme/") or safe_dest_dir == "/media/nvme" or
+            safe_dest_dir.startswith("/media/sd/") or safe_dest_dir == "/media/sd" or
+            safe_dest_dir.startswith("/tmp/") or safe_dest_dir == "/tmp"):
+        raise ValueError(f"Dest path outside allowed roots: {dest_dir}")
 
     if not os.path.exists(safe_source):
         raise FileNotFoundError(f"Source not found: {source}")
@@ -270,9 +274,19 @@ def copy_file(source: str, dest: str) -> bool:
         _mock_file_system[dest_dir].append(f_obj)
         return True
 
-    # Real mode — resolve and validate both paths (raises ValueError if unsafe)
-    safe_source = _resolve_and_validate(source)
-    safe_dest = _resolve_and_validate(dest)
+    # Real mode — resolve and validate both paths inline
+    safe_source = os.path.realpath(source)
+    if not (safe_source.startswith("/media/nvme/") or safe_source == "/media/nvme" or
+            safe_source.startswith("/media/sd/") or safe_source == "/media/sd" or
+            safe_source.startswith("/tmp/") or safe_source == "/tmp"):
+        raise ValueError(f"Source path outside allowed roots: {source}")
+
+    safe_dest = os.path.realpath(dest)
+    if not (safe_dest.startswith("/media/nvme/") or safe_dest == "/media/nvme" or
+            safe_dest.startswith("/media/sd/") or safe_dest == "/media/sd" or
+            safe_dest.startswith("/tmp/") or safe_dest == "/tmp"):
+        raise ValueError(f"Dest path outside allowed roots: {dest}")
+
     os.makedirs(os.path.dirname(safe_dest), exist_ok=True)
     shutil.copy2(safe_source, safe_dest)
     return True
@@ -283,8 +297,13 @@ def delete_file(path: str) -> bool:
             _mock_file_system[k] = [f for f in vlist if f["currentPath"] != path]
         return True
 
-    # Real mode — resolve and validate path (raises ValueError if unsafe)
-    safe_path = _resolve_and_validate(path)
+    # Real mode — resolve, validate inline, then use
+    safe_path = os.path.realpath(path)
+    if not (safe_path.startswith("/media/nvme/") or safe_path == "/media/nvme" or
+            safe_path.startswith("/media/sd/") or safe_path == "/media/sd" or
+            safe_path.startswith("/tmp/") or safe_path == "/tmp"):
+        raise ValueError(f"Path outside allowed roots: {path}")
+
     if os.path.exists(safe_path):
         os.remove(safe_path)
     return True
@@ -305,11 +324,15 @@ def list_dir_contents(path: str) -> List[Dict[str, Any]]:
             return _mock_file_system["/media/sd"]
         return []
 
-    # Allow /media as a virtual root for browsing, validate everything else
-    if path == "/media":
-        safe_path = "/media"
-    else:
-        safe_path = _resolve_and_validate(path)
+    # Real mode — resolve and validate path inline
+    # Allow /media as a virtual root for directory browsing
+    safe_path = os.path.realpath(path)
+    if safe_path == "/media":
+        pass  # /media is allowed as a browsing root
+    elif not (safe_path.startswith("/media/nvme/") or safe_path == "/media/nvme" or
+              safe_path.startswith("/media/sd/") or safe_path == "/media/sd" or
+              safe_path.startswith("/tmp/") or safe_path == "/tmp"):
+        raise ValueError(f"Path outside allowed roots: {path}")
 
     files = []
     if not os.path.exists(safe_path):
@@ -342,9 +365,19 @@ async def copy_file_chunked(source: str, dest: str):
             yield float(i * 10)
         return
 
-    # Real mode — resolve and validate both paths (raises ValueError if unsafe)
-    safe_source = _resolve_and_validate(source)
-    safe_dest = _resolve_and_validate(dest)
+    # Real mode — resolve and validate both paths inline
+    safe_source = os.path.realpath(source)
+    if not (safe_source.startswith("/media/nvme/") or safe_source == "/media/nvme" or
+            safe_source.startswith("/media/sd/") or safe_source == "/media/sd" or
+            safe_source.startswith("/tmp/") or safe_source == "/tmp"):
+        raise ValueError(f"Source path outside allowed roots: {source}")
+
+    safe_dest = os.path.realpath(dest)
+    if not (safe_dest.startswith("/media/nvme/") or safe_dest == "/media/nvme" or
+            safe_dest.startswith("/media/sd/") or safe_dest == "/media/sd" or
+            safe_dest.startswith("/tmp/") or safe_dest == "/tmp"):
+        raise ValueError(f"Dest path outside allowed roots: {dest}")
+
     os.makedirs(os.path.dirname(safe_dest), exist_ok=True)
     file_size = os.path.getsize(safe_source)
     if file_size == 0:
@@ -366,16 +399,22 @@ async def copy_file_chunked(source: str, dest: str):
 def create_zip_file(paths: List[str], output_path: str, max_mb: int = 4000) -> str:
     import zipfile
 
-    # Validate output path
-    safe_output = _resolve_and_validate(output_path)
+    # Validate and resolve output path inline
+    safe_output = os.path.realpath(output_path)
+    if not (safe_output.startswith("/media/nvme/") or safe_output == "/media/nvme" or
+            safe_output.startswith("/media/sd/") or safe_output == "/media/sd" or
+            safe_output.startswith("/tmp/") or safe_output == "/tmp"):
+        raise ValueError(f"Output path outside allowed roots: {output_path}")
 
-    # Validate and resolve all input paths
+    # Validate and resolve all input paths inline
     safe_paths = []
     for p in paths:
-        try:
-            safe_paths.append(_resolve_and_validate(p))
-        except ValueError:
-            continue  # Skip invalid paths silently
+        resolved = os.path.realpath(p)
+        if not (resolved.startswith("/media/nvme/") or resolved == "/media/nvme" or
+                resolved.startswith("/media/sd/") or resolved == "/media/sd" or
+                resolved.startswith("/tmp/") or resolved == "/tmp"):
+            continue  # Skip invalid paths
+        safe_paths.append(resolved)
 
     max_bytes = max_mb * 1024 * 1024
     current_bytes = 0
