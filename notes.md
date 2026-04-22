@@ -39,3 +39,8 @@ Ease of Modification: We don't have to decompile massive C++ binaries. We can si
 Based on historical changelogs (v2.6.3+), the device supports offline flashing via the SD card.
 
 By modifying the mounted .wic filesystem, repacking it, and using the official update mechanism, we can flash a modified root filesystem to the device without ever opening the chassis.
+
+
+5. based on details above, TiernanO has used the latest firmware (ask and i can send it on) and ran some tools like binwalk and file on it. Binwalk gives a load of files, some small, some larger. Some of the larger files are disk images, some are gziped. After un-gzipping then and running though file, i found the file named 225C000. That seems to have a linux file system in it with some interesting things.
+
+docker is installed, but under /etc/docker/daemon.json it has a runetime of rundmc... Cant seem to find anything about that online... Could be custom?
