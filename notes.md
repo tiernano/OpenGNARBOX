@@ -43,4 +43,6 @@ By modifying the mounted .wic filesystem, repacking it, and using the official u
 
 5. based on details above, TiernanO has used the latest firmware (ask and i can send it on) and ran some tools like binwalk and file on it. Binwalk gives a load of files, some small, some larger. Some of the larger files are disk images, some are gziped. After un-gzipping then and running though file, i found the file named 225C000. That seems to have a linux file system in it with some interesting things.
 
-docker is installed, but under /etc/docker/daemon.json it has a runetime of rundmc... Cant seem to find anything about that online... Could be custom?
+* docker is installed, but under /etc/docker/daemon.json it has a runetime of rundmc... Cant seem to find anything about that online... Could be custom?
+* passwd and shadow files are in there. After running john the ripper, there is a single user and password with a hash. User is 'test' and password is... wait for it... 'test'...
+* /var/lib/gnarbox seems to have some tests and tools... tests include functional and smoke, and tools. The file from there will be uploaded to the found_files folder soon.
