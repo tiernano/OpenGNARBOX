@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e
+set -x
+
+echo "(^^^) $0"
+
+. /sbin/libfirstboot.bash
+
+# Make sure docker is running and stop shivad
+systemctl start docker
+systemctl stop shivad
+
+# copy firstboot package to /media/GNARBOX
+firstboot_src=/mnt/usb/
+mkdir -p "$firstboot_src"
+
+mount /dev/sda1 "$firstboot_src"
+
+trap 'umount "$firstboot_src"' EXIT
+
+cp "$firstboot_src"/firstboot.*.tar.gz /media/GNARBOX && sync
+
+# unpack /media/GNARBOX/firstboot.*.tar.gz
+tar zxf /media/GNARBOX/firstboot.*.tar.gz -C /media/GNARBOX
+
+# docker load images in firstboot/images
+for img in /media/GNARBOX/firstboot/images/*; do
+	echo Loading "${img##*/}"...
+	docker load -i "$img"
+done
+
+# clean up after failed firstboot
+rm -rf /media/GNARBOX/*
