@@ -45,4 +45,4 @@ By modifying the mounted .wic filesystem, repacking it, and using the official u
 
 * docker is installed, but under /etc/docker/daemon.json it has a runetime of rundmc... Cant seem to find anything about that online... Could be custom?
 * passwd and shadow files are in there. After running john the ripper, there is a single user and password with a hash. User is 'test' and password is... wait for it... 'test'...
-* /var/lib/gnarbox seems to have some tests and tools... tests include functional and smoke, and tools. The file from there will be uploaded to the found_files folder soon.
+* /var/lib/gnarbox seems to have some tests and tools... tests include functional and smoke, and tools. see more at [https://github.com/tiernano/OpenGNARBOX/blob/main/found_files/mfg-readme.md]
